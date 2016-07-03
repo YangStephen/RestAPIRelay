@@ -1,185 +1,118 @@
 package com.RestAPIRelay;
 
-import java.util.*;
-import java.io.*;
-import java.net.*;
+import org.springframework.web.bind.annotation.*;
 
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Base64;
 
 @RestController
 @RequestMapping("/relay")
 public class RelayController {
-    @RequestMapping(method = RequestMethod.OPTIONS)
-    public String relayOptions(){
-        return "";
-    }
-    @RequestMapping(method = RequestMethod.GET)
-    @CrossOrigin()
-    public String relayGet(@RequestParam(value = "url") String url) {
-        System.out.println(url);
+
+    public String requestHandler(String type, String url, String params, String user, String pass) {
+        String authEncoded = "";
         try {
-            URL urlConnection = new URL(url);
-            HttpURLConnection connection = (HttpURLConnection) urlConnection.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+            // Open Connection to the URL
+            if (user != null && pass != null) {
+                authEncoded = Base64.getEncoder().encodeToString((user + ":" + pass).getBytes());
+                System.out.println(authEncoded);
+            }
+
+            URL urlConnection = new URL(url); // create urlConnection
+            HttpURLConnection connection = (HttpURLConnection) urlConnection.openConnection(); // Form HTTPURLConnection from url
+            connection.addRequestProperty("User-Agent", "Mozilla/4.76"); // set User-Agent to stop 403 errors
+            connection.setRequestMethod(type); // Type Parameter sent from endpoint function
+
+            // Check if the request data is coming in the form of a URLEncoded or a JSON (POST, PUT, and DELETE)
+            if (type.equals("GET")) {
+                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded"); // urlencoded
+            } else {
+                connection.setRequestProperty("Content-Type", "application/json;charset=utf-8"); // JSON
+            }
+
             connection.setRequestProperty("Content-Language", "en-US");
             connection.setUseCaches(false);
+            // Only execute DoInput if type is not equal to get
+            if (!(type.equals("GET"))) {
+                connection.setDoInput(true);
+            }
+            // there are parameters being sent in, setDoOutput becomes true
+            if (params != null) {
+                connection.setDoOutput(true);
+            }
 
+            // Add Authentication Headers encoded in Base64.
+            if (user != null && pass != null) {
+                connection.setRequestProperty("Authorization", "Basic " + authEncoded);
+            }
+
+            //Connect
+            connection.connect();
+
+            // Write the Parameters to the output stream of the connection
+            if (params != null) {
+                OutputStream os = new BufferedOutputStream(connection.getOutputStream());
+                os.write(params.getBytes());
+                os.flush();
+            }
+
+            // Setup the InputStream to take in data;
             InputStream is = connection.getInputStream();
             BufferedReader br = new BufferedReader(new InputStreamReader(is));
             StringBuilder response = new StringBuilder();
             String line;
+
+            // While loop to iterate through all the response data and write it into a StringBuilder object.
             while ((line = br.readLine()) != null) {
                 System.out.println(line);
                 response.append(line);
                 response.append('\r');
             }
+
+            // close BufferedReader.
             br.close();
+            // disconnect the connection
             connection.disconnect();
+
+            // return response
             return response.toString();
         } catch (Error e) {
-            System.out.println("error");
+            System.out.println(e.getMessage());
             return null;
         } catch (Exception e) {
-            System.out.println("error");
+            System.out.println(e.getMessage());
             return null;
         }
+    }
+
+    @RequestMapping(method = RequestMethod.OPTIONS)
+    public String relayOptions() {
+        return "";
+    }
+
+    @RequestMapping(method = RequestMethod.GET)
+    @CrossOrigin()
+    public String relayGet(@RequestParam(value = "url") String url) {
+        return requestHandler("GET", url, null, null, null);
     }
 
     @RequestMapping(method = RequestMethod.POST)
     @CrossOrigin()
     public String relayPost(@RequestParam(value = "user", required = false) String username, @RequestParam(value = "pass", required = false) String password, @RequestParam(value = "url") String url, @RequestParam(value = "params", required = false) String params) {
-        try {
-            String authEncoded = "";
-            if (username != null && password != null)
-            {
-                authEncoded = Base64.getEncoder().encodeToString((username+":"+password).getBytes());
-                System.out.println(authEncoded);
-            }
-            URL urlConnection = new URL(url);
-            HttpURLConnection connection = (HttpURLConnection) urlConnection.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Content-Type", "application/json;charset=utf-8");
-            connection.addRequestProperty("User-Agent", "Mozilla/4.0");
-            if (username != null && password != null) {
-                connection.setRequestProperty("Authorization", "Basic " + authEncoded);
-            }
-            connection.setDoInput(true);
-            if (params != null) {
-                connection.setDoOutput(true);
-            }
-            connection.setUseCaches(false);
-
-            connection.connect();
-            if (params != null) {
-                OutputStream os = new BufferedOutputStream(connection.getOutputStream());
-                os.write(params.getBytes());
-                os.flush();
-            }
-            InputStream is = connection.getInputStream();
-            BufferedReader br = new BufferedReader(new InputStreamReader(is));
-            StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) {
-                System.out.println(line);
-                response.append(line);
-                response.append('\r');
-            }
-            br.close();
-            connection.disconnect();
-            return response.toString();
-        } catch (Error er) {
-            System.out.println(er.getMessage());
-            return null;
-        } catch (Exception ex) {
-            System.out.println(ex.getMessage());
-            return null;
-        }
+        return requestHandler("POST", url, params, username, password);
     }
+
     @RequestMapping(method = RequestMethod.DELETE)
     @CrossOrigin()
-    public String relayDelete(@RequestParam(value = "user", required = false) String username, @RequestParam(value = "pass", required = false) String password, @RequestParam(value = "url", required=false) String url) {
-        try {
-            String authEncoded = "";
-            System.out.println(username+" "+password+" "+url);
-            if (username != null && password != null)
-            {
-                authEncoded = Base64.getEncoder().encodeToString((username+":"+password).getBytes());
-                System.out.println(authEncoded);
-            }
-            URL urlConnection = new URL(url);
-            HttpURLConnection connection = (HttpURLConnection) urlConnection.openConnection();
-            connection.setRequestMethod("DELETE");
-            connection.setRequestProperty("Content-Type", "application/json;charset=utf-8");
-            connection.addRequestProperty("User-Agent", "Mozilla/4.0");
-            if (username != null && password != null) {
-                connection.setRequestProperty("Authorization", "Basic " + authEncoded);
-            }
-            connection.setDoInput(true);
-            connection.setUseCaches(false);
-
-            connection.connect();
-            connection.disconnect();
-            return "{}";
-        } catch (Error er) {
-            System.out.println(er.getMessage());
-            return null;
-        } catch (Exception ex) {
-            System.out.println(ex.getMessage());
-            return null;
-        }
+    public String relayDelete(@RequestParam(value = "user", required = false) String username, @RequestParam(value = "pass", required = false) String password, @RequestParam(value = "url", required = false) String url) {
+        return requestHandler("DELETE", url, null, username, password);
     }
+
     @RequestMapping(method = RequestMethod.PUT)
     @CrossOrigin()
-    public String relayPut(@RequestParam(value = "user", required = false) String username, @RequestParam(value = "pass", required = false) String password, @RequestParam(value = "url", required=false) String url,@RequestParam(value = "params", required=false) String params) {
-        try {
-            String authEncoded = "";
-            System.out.println(username+" "+password+" "+url);
-            if (username != null && password != null)
-            {
-                authEncoded = Base64.getEncoder().encodeToString((username+":"+password).getBytes());
-                System.out.println(authEncoded);
-            }
-            URL urlConnection = new URL(url);
-            HttpURLConnection connection = (HttpURLConnection) urlConnection.openConnection();
-            connection.setRequestMethod("PUT");
-            connection.setRequestProperty("Content-Type", "application/json;charset=utf-8");
-            connection.addRequestProperty("User-Agent", "Mozilla/4.0");
-            if (username != null && password != null) {
-                connection.setRequestProperty("Authorization", "Basic " + authEncoded);
-            }
-            connection.setDoInput(true);
-            connection.setUseCaches(false);
-
-            connection.connect();
-            if (params != null) {
-                OutputStream os = new BufferedOutputStream(connection.getOutputStream());
-                os.write(params.getBytes());
-                os.flush();
-            }
-            InputStream is = connection.getInputStream();
-            BufferedReader br = new BufferedReader(new InputStreamReader(is));
-            StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) {
-                System.out.println(line);
-                response.append(line);
-                response.append('\r');
-            }
-            br.close();
-            connection.disconnect();
-            return response.toString();
-
-        } catch (Error er) {
-            System.out.println(er.getMessage());
-            return null;
-        } catch (Exception ex) {
-            System.out.println(ex.getMessage());
-            return null;
-        }
+    public String relayPut(@RequestParam(value = "user", required = false) String username, @RequestParam(value = "pass", required = false) String password, @RequestParam(value = "url", required = false) String url, @RequestParam(value = "params", required = false) String params) {
+        return requestHandler("PUT", url, params, username, password);
     }
 }

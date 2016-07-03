@@ -1,17 +1,16 @@
-/**
- * Created by Stephen on 2016-07-01.
+/*
+ * Stephen Yang
+ * RestAPIRelay Test Module (Scripts)
  */
 
-var data = {title:'foo', body:'bar', userId:1};
+
 $.ajax({
     url: 'http://localhost:8080/relay',
-    type:"PUT",
+    type: "GET",
     data: {
-        url:"http://jsonplaceholder.typicode.com/posts/1",
-        user: "hello",
-        pass:"hello"
+        url: "http://jsonplaceholder.typicode.com/posts"
     },
-    success: function(data) {
-        document.write('<pre>'+JSON.stringify(JSON.parse(data), null, 2)+'</pre>');
+    success: function (data) {
+        document.write('<pre>' + JSON.stringify(JSON.parse(data), null, 2) + '</pre>');
     }
 });
